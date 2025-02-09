@@ -125,6 +125,8 @@ REDUCIR2:
 	RET
 
 SUMA:
+    ; Limpiar el bit de carry antes de la suma
+    CLC ; Clear Carry Flag
 	; Leer valores de PC0-PC3 (contador 1) y PD0-PD3 (contador 2)
 	IN		R22, PINC  ; Leer PC0-PC3
 	IN		R23, PIND  ; Leer PD0-PD3
