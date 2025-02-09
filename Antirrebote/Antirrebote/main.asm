@@ -1,4 +1,3 @@
-
 ;
 ; Antirrebote.asm
 ;
@@ -16,132 +15,136 @@ OUT		SPL, R16		;CARGAR 0FF A SPL
 LDI		R17, HIGH(RAMEND) ; CARGAR 0X08
 OUT		SPH, R16			; CARGAR 0X08 A SPH
 
-;CONFIGURACION DE MCU
+;CONFIGURACION
+
 SETUP:
+    ; Clock en 1MHz
+    LDI		R16,	0b1000_0000 
+    STS		CLKPR,	R16			; Habilitar prescaler (STS por la memoria en donde esta CLKPR)
+    LDI		R16,	0b0000_0100
+    STS		CLKPR,	R16			; Divisor entre 16
 
-	; Clock en 1MHz
-	LDI R16, 0b1000_0000 
-	STS CLKPR, R16 ; Habilitar prescaler (STS por la memoria en donde esta CLKPR)
-	LDI R16, 0b0000_0100
-	STS CLKPR, R16  ; 0100 es Divisor entre 16
+    ; Desactivar comunicación UART
+    LDI		R16,	0x00
+    STS		UCSR0B,	R16			; Desactivar TX y RX
+    STS		UCSR0C,	R16			; Limpiar configuración del UART
 
-	;CONFIGURAR PUERTOB COMO ENTRADA CON PULL-UPS HABILITADOS
-	LDI		R16, 0x00
-	OUT		DDRB,R16 ; Seteamos todo el puerto B como entrada
-	LDI		R16, 0xFF
-	OUT		PORTB, R16; Habilitamos pull-ups en todo el puerto B
-	;cuando este apagado es 1 y encendido es 0
+    ; Salidas 
+    LDI		R16,	0b00101111	; PC5 (carry) y PC0-PC3 (resultado) como salidas, PC4 (botón) como entrada
+    OUT		DDRC,	R16			; Configura PORTC
+    LDI		R16,	0b00010000	; Habilitar pull-up en PC4 (botón)
+    OUT		PORTC,	R16
 
-	; Desactivar comunicación UART
-	LDI		R16, 0x00
-	STS		UCSR0B, R16  ; APAGO TX Y RX
-	STS		UCSR0C, R16  ; LIMPIO CONFIGURACIÓN DEL UART
+    LDI		R16,	0xFF
+    OUT		DDRD,	R16			; Configurar PORTD a Salida
+    
+    ; Entradas 
+    LDI		R17,	0x00
+    OUT		DDRB,	R17			
+    OUT		PORTB,	R16			; Configurar todos Pull-Up
 
-	; Configurar Puerto C
-	LDI		R16,	0b00101111	; PC5 (carry) y PC0-PC3 (resultado) como salidas, PC4 (botón) como entrada
-	OUT		DDRC,	R16			; Configura PORTC
-	LDI		R16,	0b00010000	; Habilitar pull-up en PC4 (botón)
-	OUT		PORTC,	R16
+    ; Glosario
+    LDI		R18,	0xFF		; Estados previos
+    LDI		R19,	0x00		; Contador 1
+    LDI		R20,	0x00		; Contador 2
+    LDI		R21,	0x00		; OR de 1 y 2
+    LDI		R22,	0x00		; Suma de 1 y 2
+    
+; MAIN
 
-
-	;Configurar Puerto D
-	LDI		R16, 0b11111111 ; PD4-PD7 (resultado) y PD0-PD3 (contador 2) como salidas
-	OUT		DDRD, R16
-	LDI		R16, 0b00000000 ; Apagar todas las salidas del Puerto D inicialmente
-	OUT		PORTD, R16
-
-	; Asegurar que PD0 y PD1 inicien en bajo
-	LDI		R16, 0x00
-	OUT		PORTD, R16  ; APAGO TODAS LAS SALIDAS DEL PUERTO D
-	
-	; Registro para monitoreo de estados previos
-	LDI		R18,	0xFF
-	
-	; Registros para Contadores
-	LDI		R19,	0x00		; Contador 1
-	LDI		R20,	0x00		; Contador 2
-	LDI		R21,	0x00		; OR de 1 y 2
-	LDI		R22,	0x00		; Suma de 1 y 2
-
-;LOOP PRINCIPAL
 MAIN:
-	;Antirrebote
-	
-	IN		R16, PINB	;leer puerto B
-	CP		R16, R18	; comparar estado viejo con actual
-	BREQ	MAIN		;si son iguales revisar el boton de suma
-	CALL	DELAY
-	IN		R16, PINB	;leer puerto B
-	CP		R16, R18	; comparar estado viejo con actual
-	BREQ	MAIN		;si son iguales revisar el boton de suma
-	;si no lo son
-	MOV		R18, R16 ;guardo estado actual de botones en R17
-	;CONTADOR
-	CALL	CONTADORES
-	CALL	SUM_UP
-	CALL	CHECK_SUMA
-	RJMP	MAIN
+    ; Antirrebote
+    IN		R16,	PINB
+    CP		R16,	R18		; Comparo los estados actual y previo 
+    BREQ	BSUMA	; Si no han cambiado, verifico el botón de suma
+    CALL	DELAY
+    IN		R16,	PINB
+    CP		R16,	R18		; Comparamos nuevamente
+    BREQ	BSUMA	; Si no han cambiado, verifico el botón de suma
+    ; Si cambiaron
+    MOV		R18,	R16		; Guardamos estado actual
+    
+    CALL	CONTADORES		
+    
+    CALL	SUM_UP		; Combina los contadores 
 
+BSUMA:
+    ; Verificar si el botón de suma (PC4) está presionado
+    SBIC	PINC,	PC4		; Saltar si PC4 está en alto (no presionado)
+    RJMP	MAIN			; Si no está presionado, vuelvo al loop
 
-;SUBRUTINAS (NO DE INTERRUPCIÓN)
+    ; Delay para antirrebote
+    CALL	DELAY
+
+    ; Verificar nuevamente el estado del botón
+    SBIC	PINC,	PC4		; Saltar si PC4 está en alto (no presionado)
+    RJMP	MAIN			; Si no está presionado, vuelvo al loop
+
+    ; Llamar a la subrutina de suma
+    CALL	SUMAS
+
+    RJMP	MAIN			; Al terminar vuelve al loop
+
+; Subrutinas
+
 DELAY:
-	LDI		R19, 255	;comenzamos con el delay
+    LDI		R17,	100		
 CONTEO:
-	DEC		R19
-	CPI		R19, 0x00
-	BRNE	CONTEO
-	RET
+    DEC		R17				
+    CPI		R17,	0x00	; Compara Contador con 0
+    BRNE	CONTEO			
+    RET
 
 CONTADORES:
+AUMENTAR1:
+    SBRC	R16,	PB0		; Estado de aumentar 
+    RJMP	REDUCIR1	; De no estar presionado prosigo
+    INC		R19				; Aumento contador1
 
-AUMENTAR:
-	SBRC	R16, PB0 ;REVISANDO SI EL BIT 0 ESTA "APACHADO" = 0 LOGICO
-	RJMP	REDUCIR
-	INC		R20 ; Si esta presionado aumentamos
-REDUCIR:
-	SBRC	R16, PB1 ;REVISANDO SI EL BIT 0 ESTA "APACHADO" = 0 LOGICO
-	DEC		R20 ; Si esta presionado disminuimos
+REDUCIR1:
+    SBRC	R16,	PB1		; Estado de reducir
+    RJMP	AUMENTAR2		; De no estar presionado prosigo
+    DEC		R19				; Disminuyo contador1
 
 AUMENTAR2:
-	SBRC	R16, PB3 ;REVISANDO SI EL BIT 0 ESTA "APACHADO" = 0 LOGICO
-	RJMP	REDUCIR2
-	INC		R21 ; Si esta presionado aumentamos
+    SBRC	R16,	PB3		; Estado de aumentar 
+    RJMP	REDUCIR2	; De no estar presionado prosigo
+    INC		R20				; Aumento contador2
 REDUCIR2:
-	SBRC	R16, PB4 ;REVISANDO SI EL BIT 0 ESTA "APACHADO" = 0 LOGICO
-	RET
-	DEC		R21 ; Si esta presionado disminuimos
-	RET
+    SBRC	R16,	PB4		; Estado de reducir 
+    RET						; De no estar presionado prosigo
+    DEC		R20				; Disminuyo contador1
+
+    RET						; Al terminar, vuelvo al CALL
 
 SUM_UP:
-	ANDI	R19, 0x0F
-	ANDI	R20, 0x0F
-	SWAP	R20
-	MOV		R21, R19
-	OR		R21, R20
-	SWAP	R20
-	OUT		PORTD, R21
-	RET
+    ANDI	R19,	0X0F	; Modificar ambos contadores 
+    ANDI	R20,	0X0F
+    SWAP	R20				; Cambiar nibble bajo por alto
+    MOV		R21,	R19		
+    OR		R21,	R20		; Combinar registros
+    SWAP	R20				; Regresar a su estado original
+    OUT		PORTD,	R21		
+    RET						
 
-CHECK_SUMA:
-	; Verificar si el botón de suma (PC4) está presionado
-	SBIC	PINC, PC4 ; Saltar si PC4 está en alto (no presionado)
-	RET     ; Si no está presionado, volver al MAIN
-	CALL	DELAY
-	SBIC	PINC, PC4 ; Saltar si PC4 está en alto (no presionado)
-	RET     ; Si no está presionado, volver al MAIN
-	; Si esta precionado llamar a la subrutina de suma
-	MOV		R22, R19
-	ADD		R22, R20
+SUMAS:
+    ; Limpiar el bit de carry antes de la suma
+    CLC						; Clear Carry Flag
 
-	BRCC	NO_CARRY
-	SBI		PORTC, PC5
-	RJMP	SHOW
+    ; Realizar la suma
+    MOV		R22,	R19		
+    ADD		R22,	R20		; Sumar R19 y R20 en R22
+
+    ; Carry
+    BRCC	NO_CARRY		
+    SBI		PORTC,	PC5		; Encender LED de carry en PC5
+    RJMP	SHOW
 
 NO_CARRY:
-	CBI		PORTC, PC5
+    CBI		PORTC,	PC5		; Apagar LED de carry en PC5
 
 SHOW:
-	ANDI R22, 0x0F
-	OUT PORTC, R22
-	RET
-;SUBRUTINAS DE INTERRUPCIÓN
+    ANDI	R22,	0x0F	; Asegurar que solo se usen los 4 bits bajos
+    OUT		PORTC,	R22		; Mostrar el resultado en PORTC (PC0-PC3)
+
+    RET						; Al terminar, vuelvo al CALL
