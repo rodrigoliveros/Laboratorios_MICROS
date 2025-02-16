@@ -30,7 +30,7 @@ SETUP:
     STS		UCSR0C,	R16			; Limpiar configuración del UART
 
     ; Salidas 
-    LDI		R16,	0b00101111	; PC5 (carry) y PC0-PC3 (resultado) como salidas, PC4 (botón) como entrada
+    LDI		R16,	0b00101111	; PC5 (carry) y PC0-PC3 (resultados) como salidas, PC4 (botón) como entrada
     OUT		DDRC,	R16			; Configura PORTC
     LDI		R16,	0b00010000	; Habilitar pull-up en PC4 (botón)
     OUT		PORTC,	R16
