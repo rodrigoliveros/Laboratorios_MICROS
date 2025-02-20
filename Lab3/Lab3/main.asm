@@ -10,6 +10,8 @@
 ;R16 = Registro variable
 ;R17 = Registro para el contador
 ;R18 = Bandera para antirrebote
+;R19 = Registro para el contador de segundos
+;R20 = Regsitro para el contador hexagesimal
 
 ; Vectores de interrupción
 .org 0x0000
@@ -30,6 +32,15 @@ SETUP:
     ; Configurar Puerto C como salida (LEDs)
     LDI         R16, 0x0F       ; PC0-PC3 como salida
     OUT         DDRC, R16
+	
+	; Configurar Puerto D como salida (PORTD (7 segmentos))
+
+	LDI		R16, 0xFF
+	OUT		DDRD, R16 ; PORTD SALIDAS
+	
+    ; Desactivar comunicación UART
+    LDI		R16,	0x00
+    STS		UCSR0B,	R16			; Desactivar TX y RX
 
     ; Configurar Puerto B como entrada (Botones)
     LDI         R16, 0x00       ; PB0-PB1 como entrada
@@ -52,10 +63,18 @@ SETUP:
     OUT         TCCR0B, R16
     LDI         R16, (1 << TOIE0)              ; Habilitar interrupción por overflow
     STS         TIMSK0, R16
+	LDI			R16, 216
+	OUT			TCNT0, R16
+	
+; Tabla de conversión para display de 7 segmentos (cátodo común)
+TABLA7SEGM: .db 0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F
 
     ; Inicializar el contador y la bandera de antirrebote
-    CLR         R17
-    CLR         R18
+	CLR			R16
+    CLR         R17			 ; Limpiamos el registro contador
+    CLR         R18			 ; Limpiamos la bandera antirrebote
+	CLR			R19			 ; Limpiamos el registro contador hexagesimal
+	CLR			R20			
     OUT         PORTC, R17   ; Mostrar el valor inicial en los LEDs
 
     ; Habilitar interrupciones globales
@@ -73,8 +92,8 @@ PCINT0_ISR:
     PUSH        R16
 
     ; Activar la bandera de antirrebote y reiniciar el Timer0
-    LDI         R18, 1
-    CLR         R16
+    LDI         R18, 1			; Como se se presiono algun boton activamos la bandera de antirrebote
+    CLR         R16				; Limpiamos el registro para reiniciar el timer0
     OUT         TCNT0, R16      ; Reiniciar el Timer0
 
     ; Restaurar el estado de los registros
@@ -86,13 +105,27 @@ PCINT0_ISR:
 ; Rutina de interrupción para Timer0 Overflow
 TIMER0_OVF_ISR:
     ; Guardar el estado de los registros
+
     PUSH        R16
     IN          R16, SREG
     PUSH        R16
 
+
+	; Aumentar contador de hexagesimal
+	INC			R19	
+
+	; Verificar si el contador llego a 50
+	CPI			R19, 50
+	BRLO		NO_LIMIT
+
+	; Si la interrupción ocurrio 50 veces, encender contador y resetear contador
+	RCALL		CONTADOR_HEX
+	CLR			R19	
+
     ; Verificar si la bandera de antirrebote está activa
-    SBRC        R18, 0
-    RCALL       CHECK
+	NO_LIMIT:
+    SBRC        R18, 0			
+    RCALL       CHECK			; Si la bandera esta activa revisamos los botones, si no saltamos
 
     ; Restaurar el estado de los registros
     POP         R16
@@ -100,6 +133,25 @@ TIMER0_OVF_ISR:
     POP         R16
     RETI
 
+; Subrutina para encender el contador hexagesimal
+CONTADOR_HEX:
+    INC         R20              ; Incrementar el contador hexadecimal
+
+    ; Verificar si el contador llegó a 10
+    CPI         R20, 10
+    BRLO        MOSTRAR_DISPLAY  ; Si R20 < 10, mostrar el valor en el display
+    CLR         R20              ; Si R20 >= 10, reiniciar a 0
+
+MOSTRAR_DISPLAY:
+    ; Cargar la dirección de la tabla de 7 segmentos
+    LDI         ZH, HIGH(TABLA7SEGM << 1)  ; Parte alta de la dirección de la tabla
+    LDI         ZL, LOW(TABLA7SEGM << 1)   ; Parte baja de la dirección de la tabla
+    ADD         ZL, R20                    ; Añadir el valor de R20 a ZL
+    LPM         R16, Z                     ; Leer el valor de la tabla de 7 segmentos
+
+    ; Mostrar el valor en el display de 7 segmentos (PORTD)
+    OUT         PORTD, R16
+    RET
 ; Subrutina para verificar los botones después del antirrebote
 CHECK:
     ; Leer el estado de los botones
@@ -130,3 +182,4 @@ DECREMENTAR:
     ANDI        R17, 0x0F   
     OUT         PORTC, R17   ; Mostrar el valor en los LEDs
     RET
+
