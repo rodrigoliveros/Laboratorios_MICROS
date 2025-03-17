@@ -25,6 +25,16 @@ UMIN:	.byte	1
 DMIN:	.byte	1
 UHOR:	.byte	1
 DHOR:	.byte	1
+; Variables para modificar hora
+M_MIN: .byte	1
+M_UMIN: .byte	1
+M_DMIN: .byte	1
+M_HOR:	.byte	1
+M_UHOR:	.byte	1
+M_DHOR: .byte	1
+CONTROL:.byte	1
+AFLAG:	.byte	1
+DFLAG:  .byte	1
 
 ; Vectores de interrupción
 .cseg
@@ -72,7 +82,8 @@ SETUP:
     OUT         DDRB, R16
 
     ; Configurar Timer0  (10 ms)
-    LDI         R16, (1 << CS02) | (1 << CS00) ; Prescaler de 1024
+	//LDI         R16, (1 << CS00) ; Prescaler de 1
+	LDI         R16, (1 << CS02) | (1 << CS00) ; Prescaler de 1024
     OUT         TCCR0B, R16
     LDI         R16, (1 << TOIE0)              ; Habilitar interrupción por overflow
     STS         TIMSK0, R16
@@ -97,6 +108,15 @@ SETUP:
 	STS			USEG, R16
 	STS			DSEG, R16
 	STS			SFLAG, R16
+	STS			M_MIN, R16
+	STS			M_HOR, R16
+	STS			M_UMIN, R16
+	STS			M_DMIN, R16
+	STS			M_UHOR, R16
+	STS			M_DHOR, R16
+	STS			CONTROL, R16
+	STS			AFLAG, R16
+	STS			DFLAG, R16	
 
 
     ; Habilitar interrupciones globales
@@ -216,8 +236,7 @@ S_FECHA:						; LEDS |0|-|
 	CBI			PORTC, PC5
 	SBI			PORTC, PC4
 	RJMP		MAIN_LOOP
-M_HORA_MIN:						; LEDS |-|0|
-	LDI			MOSTRAR, 0x5B		
+M_HORA_MIN:						; LEDS |-|0|		
 	SBI			PORTC, PC5
 	CBI			PORTC, PC4
 	RJMP		MAIN_LOOP
@@ -288,6 +307,63 @@ PCINT1_ISR:
 		RJMP EXIT_PDINT1_ISR
 	MODO2_ISR:
 		//Relacionado con configurar minutos
+		; Manejo de banderas para Aumentar o Decrementar
+		LDS			R16, AFLAG			; Cargamos el valor de AFLAG en caso este presionado Aumentar
+		SBIS		PINC, PC1			
+		LDI			R16, 1				; Si esta precionado prendemos bandera
+		STS			AFLAG, R16			; Guardamos el valor
+		LDS			R16, DFLAG			; Cargamos el valor de DFLAG en caso este presionado Decrementar
+		SBIS		PINC, PC2			
+		LDI			R16, 1				; Si esta presionado prendemos bandera
+		STS			DFLAG, R16			; Guardamos el valor
+
+		
+		; Configuración de minutos
+		LDS			R16, AFLAG
+		CPI			R16, 1				; Verificamos si Aumentar esta presionado
+		BREQ		AUMENTAR
+		LDS			R16, DFLAG								
+		CPI			R16, 1				; Verificamos si Decrementar esta presionado
+		BREQ		DECREMENTAR
+		RJMP		EXIT_PDINT1_ISR		; Si ninguno esta presionado salimos
+		AUMENTAR:
+		CLR			R16					; Reset de la bandera y guardamos
+		STS			AFLAG, R16
+		LDS			R16, M_MIN
+		INC			R16
+		CPI			R16, 60				; Verificamos si los minutos alcanzaron su máximo			
+		BRNE		STORE_M_MIN
+		CLR			R16
+		RJMP		STORE_M_MIN
+		DECREMENTAR:
+		CLR			R16
+		STS			DFLAG, R16			; Reset de la bandera y guardamos
+		LDS			R16, M_MIN
+		DEC			R16
+		CPI			R16, 255			; Comparamos si M_MIN disminuyo más alla del cero, eso vuelve el registro a 255
+		BRNE		STORE_M_MIN
+		LDI			R16, 59				; Si hicimos underflow, entonces colocamos 59
+		STORE_M_MIN:
+		STS			M_MIN, R16			; Guardamos el valor de M_MIN y esperamos otra interrupción
+		STS			CONTROL, R16		; Guardamos el valor de M_MIN para alterarlo
+		; Rutina para partir M_MIN en M_UMIN y M_DMIN
+		PARTIR:
+		LDS			R16, CONTROL
+		CPI			R16, 10				; Comparando si M_MIN es <10
+		BRLO		DONE				; Si es menor, ya terminamos
+		SUBI		R16, 10				; Restamos a M_MIN 10
+		STS			CONTROL, R16		; Guardamos el valor despues de la resta
+		LDS			R16, M_DMIN			
+		INC			R16					; Incrementamos el valor de la decena
+		STS			M_DMIN, R16			; Guatdamos el valor despes del incremento
+		RJMP		PARTIR				; Repetir hasta que M_MIN sea <10
+		DONE:
+		STS			M_UMIN, R16
+		STS			UMIN, R16			; Guardamos el valor seleccionado en el registro del reloj UMIN
+		LDS			R16, M_DMIN	
+		STS			DMIN, R16			; Guardamos el valor seleccionado en el registro del reloj DMIN
+		CLR			R16
+		STS			CONTROL, R16		; Limpiamos el registro control para usarlo en otra cosa
 		RJMP EXIT_PDINT1_ISR
 	MODO3_ISR:
 		//Relacionado con configurar hora
@@ -376,8 +452,6 @@ RELOJ:
 	INC			R16		
 	STS			DHOR, R16
 	RJMP		EXIT_TIMER0_ISR
-
-
 
 	; Rutinas de guardado 
 STORE_USEG:
