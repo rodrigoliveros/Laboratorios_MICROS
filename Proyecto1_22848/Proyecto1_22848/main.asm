@@ -33,6 +33,7 @@ M_HOR:	.byte	1
 M_UHOR:	.byte	1
 M_DHOR: .byte	1
 CONTROL:.byte	1
+CONTROL1:.byte	1
 AFLAG:	.byte	1
 DFLAG:  .byte	1
 
@@ -115,6 +116,7 @@ SETUP:
 	STS			M_UHOR, R16
 	STS			M_DHOR, R16
 	STS			CONTROL, R16
+	STS			CONTROL1, R16
 	STS			AFLAG, R16
 	STS			DFLAG, R16	
 
@@ -307,10 +309,75 @@ M_HORA_MIN:						; LEDS |-|0|
 		SBI			PORTB, PB3
 		RJMP		MAIN_LOOP
 M_HORA_HOR:						; LEDS |-|0|
-	LDI			MOSTRAR, 0x4F
 	SBI			PORTC, PC5
 	CBI			PORTC, PC4
-	RJMP		MAIN_LOOP
+	; Menu de intercambio para displays
+	LDS			R16, SFLAG
+	CPI			R16, 0
+	BREQ		M1_COM1
+	CPI			R16, 1
+	BREQ		M1_COM2
+	CPI			R16, 2
+	BREQ		M1_COM3
+	CPI			R16, 3
+	BREQ		M1_COM4
+
+	M1_COM1:
+		CBI			PORTB, PB0
+		CBI			PORTB, PB1
+		CBI			PORTB, PB2
+		CBI			PORTB, PB3	
+		; Cargar la dirección de UMIN a  la tabla de 7 segmentos
+		LDI         ZH, HIGH(TABLA7SEGM << 1)			; Parte alta de la dirección de la tabla
+		LDI         ZL, LOW(TABLA7SEGM << 1)			; Parte baja de la dirección de la tabla
+		LDS			R16, M_UMIN
+		ADD         ZL, R16								; Añadir el valor de M_UMIN a ZL
+		LPM         MOSTRAR, Z							; Leer el valor de la tabla de 7 segmentos
+		; Mostrar el valor en el display de 7 segmentos (PORTD)
+		SBI			PORTB, PB0
+		RJMP		MAIN_LOOP
+	M1_COM2:
+		CBI			PORTB, PB0
+		CBI			PORTB, PB1
+		CBI			PORTB, PB2
+		CBI			PORTB, PB3	
+		; Cargar la dirección de UMIN a  la tabla de 7 segmentos
+		LDI         ZH, HIGH(TABLA7SEGM << 1)			; Parte alta de la dirección de la tabla
+		LDI         ZL, LOW(TABLA7SEGM << 1)			; Parte baja de la dirección de la tabla
+		LDS			R16, M_DMIN
+		ADD         ZL, R16								; Añadir el valor de M_DMIN a ZL
+		LPM         MOSTRAR, Z							; Leer el valor de la tabla de 7 segmentos
+		; Mostrar el valor en el display de 7 segmentos (PORTD)
+		SBI			PORTB, PB1
+		RJMP		MAIN_LOOP
+	M1_COM3:
+		CBI			PORTB, PB0
+		CBI			PORTB, PB1
+		CBI			PORTB, PB2
+		CBI			PORTB, PB3	
+		; Cargar la dirección de UMIN a  la tabla de 7 segmentos
+		LDI         ZH, HIGH(TABLA7SEGM << 1)			; Parte alta de la dirección de la tabla
+		LDI         ZL, LOW(TABLA7SEGM << 1)			; Parte baja de la dirección de la tabla
+		LDS			R16, M_UHOR
+		ADD         ZL, R16								; Añadir el valor de M_UHOR a ZL
+		LPM         MOSTRAR, Z							; Leer el valor de la tabla de 7 segmentos
+		; Mostrar el valor en el display de 7 segmentos (PORTD)
+		SBI			PORTB, PB2
+		RJMP		MAIN_LOOP
+	M1_COM4:
+		CBI			PORTB, PB0
+		CBI			PORTB, PB1
+		CBI			PORTB, PB2
+		CBI			PORTB, PB3	
+		; Cargar la dirección de UMIN a  la tabla de 7 segmentos
+		LDI         ZH, HIGH(TABLA7SEGM << 1)			; Parte alta de la dirección de la tabla
+		LDI         ZL, LOW(TABLA7SEGM << 1)			; Parte baja de la dirección de la tabla
+		LDS			R16, M_DHOR
+		ADD         ZL, R16								; Añadir el valor de M_DHOR a ZL
+		LPM         MOSTRAR, Z							; Leer el valor de la tabla de 7 segmentos
+		; Mostrar el valor en el display de 7 segmentos (PORTD)
+		SBI			PORTB, PB3
+		RJMP		MAIN_LOOP
 M_FECHA_MES:					; LEDS |0|-|
 	LDI			MOSTRAR, 0x66
 	CBI			PORTC, PC5
@@ -406,7 +473,8 @@ MODO2_ISR:
     INC         R16						; La incrementamos
     CPI         R16, 60					; Comparamos si llego a 60 (límite)
     BRLO        STORE_M_MIN				; Si no ha llegado la procedemos a guardar
-    LDI         R16, 0x00				; Si llego al limite borramos  y guardamos
+    LDI			R16, 0x00			    ; Si llego al limite borramos  y guardamos
+	STS			M_MIN, R16
     RJMP        STORE_M_MIN	
 	DECREMENTAR:
     CLR         R16						
@@ -446,8 +514,70 @@ MODO2_ISR:
 
 
 MODO3_ISR:
-    ; Relacionado con configurar hora
-    RJMP EXIT_PDINT1_ISR
+    ; Relacionado con configurar hora    
+	; Manejo de banderas para Aumentar o Decrementar
+    LDS         R16, AFLAG				; Cargamos el valor de AFLAG en caso este presionado aumentar
+    SBIS        PINC, PC1  
+    LDI         R16, 1					; Si esta presionado activamos bandera
+    STS         AFLAG, R16				; Guardamos el valor de la bandera
+    LDS         R16, DFLAG				; Cargamos el valor de DFLAG en caso este presionado 
+    SBIS        PINC, PC2  
+    LDI         R16, 1					; Si esta presionado activamos bandera
+    STS         DFLAG, R16				; Guardamos el valor de la bandera
+    ; Direccionamiento a rutinas
+    LDS         R16, AFLAG				
+    CPI         R16, 1					; Verificamos si se presiono AUMENTAR
+    BREQ        AUMENTAR1				; Si se presiono vamos a la subrutina
+    LDS         R16, DFLAG		
+    CPI         R16, 1					; Verificamos si se presiono  DECREMENTAR
+    BREQ        DECREMENTAR1			; Si se presiono vamos a la subrutina
+    RJMP        EXIT_PDINT1_ISR
+	AUMENTAR1:
+    CLR         R16
+    STS         AFLAG, R16				; Borramos la bandera y guardamos el valor
+    LDS         R16, M_HOR				; Cargamos la variable de modificar minutos
+    INC         R16						; La incrementamos
+    CPI         R16, 24					; Comparamos si llego a 24 (límite)
+    BRLO        STORE_M_HOR				; Si no ha llegado la procedemos a guardar
+    LDI			R16, 0x00			    ; Si llego al limite borramos  y guardamos
+	STS			M_HOR, R16
+    RJMP        STORE_M_HOR	
+	DECREMENTAR1:
+    CLR         R16						
+    STS         DFLAG, R16               ; Borramos la bandera y guardamos el valor
+    LDS         R16, M_HOR               ; Cargamos la variable de modificar minutos
+    DEC         R16                      ; Decrementamos el valor 
+    
+    CPI         R16, 24                  ; ¿Es menor que 24?
+    BRLO        STORE_M_HOR              ; Si es menor, es válido (0-59), guardamos y salimos
+    LDI         R16, 23                  ; Si el valor es 255, 254, ..., lo corregimos a 23
+	STORE_M_HOR:
+    STS         M_HOR, R16               ; Guardamos el valor corregido
+    LDS         R16, M_HOR
+    STS         CONTROL1, R16             ; Guardamos en CONTROL nuestra variable editable
+	PARTIR1:
+    ; Reiniciamos M_DMIN antes de comenzar a calcular
+    CLR         R17
+    STS         M_DHOR, R17
+
+    LDS         R16, CONTROL1            ; Cargamos el valor de CONTROL (0-24)
+    
+	CONVERTIR_DECENAS1:
+    CPI         R16, 10                  ; ¿Es menor a 10?
+    BRLO        GUARDAR_UNIDADES1         ; Si sí, ya tenemos las unidades, salimos
+    
+    SUBI        R16, 10                   ; Restamos 10
+    INC         R17                       ; Incrementamos M_DMIN (decenas)
+    RJMP        CONVERTIR_DECENAS1         ; Repetimos hasta que R16 < 10
+    
+	GUARDAR_UNIDADES1:
+    STS         M_UHOR, R16               ; Guardamos unidades
+    STS         UHOR, R16                 ; Actualizamos la pantalla
+    STS         M_DHOR, R17               ; Guardamos decenas
+    STS         DHOR, R17                 ; Actualizamos la pantalla
+
+    RJMP        EXIT_PDINT1_ISR
+
 MODO4_ISR:
     ; Relacionado con configurar meses
     RJMP EXIT_PDINT1_ISR
