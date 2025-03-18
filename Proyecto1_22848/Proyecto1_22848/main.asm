@@ -406,9 +406,8 @@ MODO2_ISR:
     INC         R16						; La incrementamos
     CPI         R16, 60					; Comparamos si llego a 60 (límite)
     BRLO        STORE_M_MIN				; Si no ha llegado la procedemos a guardar
-    CLR         R16						; Si llego al limite borramos  y guardamos
-	STS			M_MIN, R16
-    RJMP        EXIT_PDINT1_ISR	
+    LDI         R16, 0x00				; Si llego al limite borramos  y guardamos
+    RJMP        STORE_M_MIN	
 	DECREMENTAR:
     CLR         R16						
     STS         DFLAG, R16               ; Borramos la bandera y guardamos el valor
