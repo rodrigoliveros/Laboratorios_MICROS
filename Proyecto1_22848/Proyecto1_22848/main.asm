@@ -993,7 +993,7 @@ RELOJ:
 	CLR			R16					; Si llegamos, borramos y guardamos valor para UHORA y DHORA.
 	STS			UHOR, R16
 	STS			DHOR, R16
-	RJMP		EXIT_TIMER0_ISR
+	CALL		ACT_FECHA
 	HORA_NORMAL:
 	LDS			R16, UHOR	
 	INC			R16
@@ -1025,7 +1025,29 @@ STORE_UHOR:
 STORE_DHOR:
 	STS			DHOR, R16
 	RJMP		EXIT_TIMER0_ISR
+ACT_FECHA:
 
+	; Overflow de fecha
+	LDS			R16, M_DIAS
+	INC			R16
+	PARTIR6:
+    ; Reiniciamos M_DDIAS antes de comenzar a calcular
+    CLR         R17
+    STS         M_DDIAS, R17
+    
+	CONVERTIR_DECENAS6:
+    CPI         R16, 10                  ; ¿Es menor a 10?
+    BRLO        GUARDAR_UNIDADES6        ; Si sí, ya tenemos las unidades, salimos
+    
+    SUBI        R16, 10                   ; Restamos 10
+    INC         R17                       ; Incrementamos M_DMIN (decenas)
+    RJMP        CONVERTIR_DECENAS6         ; Repetimos hasta que R16 < 10
+    
+	GUARDAR_UNIDADES6:
+    STS         UDIAS, R16                 ; Actualizamos la pantalla
+    STS         DDIAS, R17                 ; Actualizamos la pantalla
+
+	RJMP		EXIT_TIMER0_ISR
 
 EXIT_TIMER0_ISR:
 	; Restaurar el estado de los registros
