@@ -123,6 +123,8 @@ SETUP:
 	; Registros R0 -R31
 	CLR			MODO
 	CLR			MOSTRAR
+	CLR			R18
+	CLR			R19
 
 	; Registros RAM
 	LDI			R16, 0x00
@@ -174,7 +176,25 @@ SETUP:
 ;MAIN
 MAIN_LOOP:
 	
-	OUT		PORTD, MOSTRAR	
+	OUT		PORTD, MOSTRAR
+	LDS		R19,UMIN
+	LDS		R18, A_UMIN
+	CP		R18, R19
+	BRNE	MENU
+	LDS		R19, DMIN
+	LDS		R18, A_DMIN
+	CP		R18, R19
+	BRNE	MENU
+	LDS		R19, UHOR
+	LDS		R18, A_UHOR
+	CP		R18, R19
+	BRNE	MENU
+	LDS		R19, DHOR
+	LDS		R18, A_DHOR
+	CP		R18, R19
+	BRNE	MENU
+	SBI		PORTB, PB4
+	MENU:
 	CPI		MODO, 0
 	BRNE	SIGUIENTE1
 	JMP		S_HORA  
@@ -816,7 +836,33 @@ CHECK_MODE:
 
 MODO0_ISR:
     ; Relacionado con mostrar hora
-    RJMP EXIT_PDINT1_ISR
+    ; Manejo de banderas para Aumentar o Decrementar
+    LDS         R16, AFLAG				; Cargamos el valor de AFLAG en caso este presionado aumentar
+    SBIS        PINC, PC1  
+    LDI         R16, 1					; Si esta presionado activamos bandera
+    STS         AFLAG, R16				; Guardamos el valor de la bandera
+    LDS         R16, DFLAG				; Cargamos el valor de DFLAG en caso este presionado 
+    SBIS        PINC, PC2  
+    LDI         R16, 1					; Si esta presionado activamos bandera
+    STS         DFLAG, R16				; Guardamos el valor de la bandera
+    ; Direccionamiento a rutinas
+    LDS         R16, AFLAG				
+    CPI         R16, 1					; Verificamos si se presiono AUMENTAR
+    BREQ        AUMENTAR0				; Si se presiono vamos a la subrutina
+    LDS         R16, DFLAG		
+    CPI         R16, 1					; Verificamos si se presiono  DECREMENTAR
+    BREQ        DECREMENTAR0			; Si se presiono vamos a la subrutina
+    RJMP        EXIT_PDINT1_ISR
+	AUMENTAR0:
+    CLR         R16
+    STS         AFLAG, R16				; Borramos la bandera y guardamos el valor
+	CBI			PORTB, PB4
+	RJMP EXIT_PDINT1_ISR
+	DECREMENTAR0:
+    CLR         R16						
+    STS         DFLAG, R16               ; Borramos la bandera y guardamos el valor
+	CBI			PORTB, PB4
+	RJMP EXIT_PDINT1_ISR
 MODO1_ISR:
     ; Relacionado con mostrar fecha
     RJMP EXIT_PDINT1_ISR
