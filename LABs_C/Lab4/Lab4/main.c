@@ -56,6 +56,13 @@ int main(void)
 		}// Fin de controlador
 		
 	}// Fin de Antirrebote
+	// Subrutina de alarma
+	if(valueadc > contador8){
+	PORTB  |= 0b00001000;
+	}
+	else {
+	PORTB  |= 0b00000000;	
+	}
 	// Mostramos el valor del contador en el Puerto D
 	_delay_ms(70);
 	PORTB  = 0x00;
