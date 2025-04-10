@@ -15,5 +15,4 @@
 #define fastMode 1
 #define phaseMode 0
 void	initPWM1A(uint8_t invertido,uint8_t mode, uint8_t top_value, uint16_t prescaler);
-void	initPWM1B(uint8_t invertido,uint8_t mode, uint8_t top_value, uint16_t prescaler);
 #endif /* PWM1_H_ */
