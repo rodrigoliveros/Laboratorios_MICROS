@@ -7,7 +7,7 @@
 #include "PWM12.h"
 void	initPWM1B(uint8_t invertido,uint8_t mode, uint8_t top_value, uint16_t prescaler)
 {
-	ICR1	= top_value;						// Configurar valor de top
+	//ICR1	= top_value;						// Configurar valor de top
 	TCCR1A	&= ~((1 << COM1B1)|(1 << COM1B0));	// Protección para solo configurar modo invert o no invert
 	if(invertido == inv){
 		TCCR1A |= (1 <<COM1B1)|(1 << COM1B0);	// Conf. Invertido

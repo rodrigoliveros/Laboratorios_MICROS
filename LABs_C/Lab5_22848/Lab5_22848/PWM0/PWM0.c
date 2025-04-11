@@ -6,7 +6,7 @@
  */ 
 #include "PWM0.h"
 void initPWM0A(uint8_t invetido, uint16_t prescaler){
-	DDRD |= (1 << DDD6);
+	
 	TCCR0A &= ~((1 << COM0A1)|(1 << COM0A0));
 	if(invetido == inv){
 		TCCR0A |= (1 << COM0A1)|(1 << COM0A0);

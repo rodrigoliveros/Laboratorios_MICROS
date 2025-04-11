@@ -32,6 +32,7 @@ setup();
 SETUPADC();
 OCR1A = 16; // 1 ms inicial (ángulo mínimo)
 OCR1B = 16; // 1 ms inicial (24)(ángulo medio)
+OCR0A = 16;
 sei();
 
     /* Replace with your application code */
@@ -49,30 +50,35 @@ void setup(void){
 	initPWM0A(ninv,64);
 	DDRB	= 0;
 	DDRB	|= (1 << DDB1)|(1 << DDB2);			// Configuración de (PB0-PB1) como salida PWM
+	DDRD |= (1 << DDD6);						// Configuración de PD6 como salida PWM
+	
 }
 ISR(ADC_vect){
 	valueadc	= ADCH;
 	ADCSRA		|= (1 << ADIF);
 	// Mapeo del valor ADC (0-255) a OCR1x (16 a 31)
-	uint8_t pulse_width = (valueadc * (70 - 16)) / (255 + 16);
+	uint8_t pulse_width = ((uint32_t)valueadc * (70 - 16)) / (255 + 16);
 	if(change == 0){
-		OCR1A = pulse_width;
+		ADMUX = 0;
 		change = 1;
+		OCR1A = pulse_width;
 		//Cambio de Lectura ADC6
-		ADMUX = 0;
 		ADMUX |= (1 << REFS0)|(1 << ADLAR)|(1 << MUX2)|(1 << MUX1); // Vcc ref(5v), Resolución 8 bits, ADC6
+		
 	}//FIN ADC6
-	else{ //if(change == 1){
-		OCR1B = pulse_width;
-		change = 0;
-		//Cambio de Lectura ADC7
+	else if(change == 1){
 		ADMUX = 0;
+		OCR1B = pulse_width;
+		change = 2;
+		//Cambio de Lectura ADC7
 		ADMUX |= (1 << REFS0)|(1 << ADLAR)|(1<<MUX2)|(1<<MUX1)|(1<<MUX0); // Vcc ref(5v), Resolución 8 bits, ADC7
+		
 	}//FIN ADC7
-	/*else {
+	else {
+		ADMUX = 0;
+		OCR0A = pulse_width;
 		change = 0;
 		//Cambio de Lectura ADC5
-		ADMUX = 0;
-		ADMUX |= (1 << REFS0)|(1 << ADLAR)|(1 << MUX2)|(1 << MUX0); // Vcc ref(5v), Resolución 8 bits, ADC5
+		ADMUX |= (1 << REFS0)|(1 << ADLAR)|(1<<MUX2)|(1<<MUX0); // Vcc ref(5v), Resolución 8 bits, ADC5
 	}//FIN ADC5*/
 }
