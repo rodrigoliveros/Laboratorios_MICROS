@@ -27,6 +27,7 @@ int main(void)
 	writeUART('j');
 	writeUART('e');
 	writeUART('\n');
+	writeTEXTUART("HALA MADRID !!!!");
 	
 	/* Replace with your application code */
 	while (1)
@@ -55,14 +56,14 @@ void writeUART(char Caracter) {
 	while(!(UCSR0A & (1<<UDRE0))); //UCSR0A sea 1
 	UDR0 = Caracter;
 }
-/*
+
 void writeTEXTUART(char* Texto) {
 	for(uint8_t i = 0; *(Texto+i) != '\0'; i++)
 	{
 		writeUART(*(Texto+i));
 	}
 }
-*/
+
 ISR(USART_RX_vect) {
 	buffertx = UDR0;
 	//lo que yo le mande me responde lo mismo
