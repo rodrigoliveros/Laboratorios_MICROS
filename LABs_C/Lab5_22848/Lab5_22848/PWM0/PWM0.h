@@ -13,5 +13,5 @@
 
 #define inv 1
 #define ninv 0
-void initPWM0A(uint8_t invetido, uint16_t prescaler);
+void initPWM0A(uint8_t invertido, uint16_t prescaler);
 #endif /* PWM0_H_ */

@@ -5,16 +5,17 @@
  *  Author: rodri
  */ 
 #include "PWM0.h"
-void initPWM0A(uint8_t invetido, uint16_t prescaler){
+void initPWM0A(uint8_t invertido, uint16_t prescaler){
 	
 	TCCR0A &= ~((1 << COM0A1)|(1 << COM0A0));
-	if(invetido == inv){
+	if(invertido == inv){
 		TCCR0A |= (1 << COM0A1)|(1 << COM0A0);
 	}
 	else {
 		TCCR0A |= (1 << COM0A1);
 	}
-	TCCR0A |= (1 << WGM01)|(1 << WGM00);
+	
+	TCCR0A |= (1 << WGM01)|(1 << WGM00); //Modo fast
 	TCCR0B	&= ~((1 << CS02)|(1 << CS01)|(1 << CS00));
 	
 	switch(prescaler){

@@ -8,7 +8,7 @@
 void	initPWM1A(uint8_t invertido,uint8_t mode, uint8_t top_value, uint16_t prescaler)
 {
 	DDRB	= 0;
-	DDRB	|= (1 << DDB1)|(1 << DDB2);			// Configuración de (PB0-PB1) como salida PWM
+	DDRB	|= (1 << DDB1)|(1 << DDB2);			// Configuración de (PB1-PB2) como salida PWM
 	ICR1	= top_value;						// Configurar valor de top
 	TCCR1A	&= ~((1 << COM1A1)|(1 << COM1A0));	// Protección para solo configurar modo invert o no invert
 	if(invertido == inv){
