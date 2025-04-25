@@ -8,35 +8,77 @@
 #include <avr/io.h>
 #include <util/delay.h>
 #include <avr/interrupt.h>
+#include "ADC/ADC.h"
 
 void initUART9600(void);
 void writeUART(char Caracter);
 void writeTEXTUART(char * Texto);
-
+uint8_t valueadc = 0;
 volatile uint8_t buffertx;
+uint8_t	flag = 0;
+
 
 int main(void)
 {
+	cli();
 	initUART9600();
+	SETUPADC();
 	sei();
-	writeUART('M');
-	writeUART('e');
-	writeUART('n');
-	writeUART('s');
-	writeUART('a');
-	writeUART('j');
-	writeUART('e');
-	writeUART('\n');
-	writeTEXTUART("HALA MADRID !!!!");
-	
 	/* Replace with your application code */
 	while (1)
 	{
-		PORTB = buffertx;
-	}
-}
+		writeUART('\n');
+		writeTEXTUART("Menu");
+		writeUART('\n');
+		writeTEXTUART("1. Leer Potenciometro");
+		writeUART('\n');
+		writeTEXTUART("2. Enviar ASCII");
+		writeUART('\n');
+		while(flag == 0); // FIN MENU
+		if(flag == 1){	//Modo potenciometro
+			writeTEXTUART("El valor del potenciometro es:");
+			// Rutinas para convertir el valor
+			 uint8_t c = 0;
+			 uint8_t d = 0;
+			 uint8_t u = 0;
+
+			 // Copiamos el valor leído a una variable local
+			 uint8_t val = valueadc;
+
+			 // Calcular centenas, decenas y unidades
+			 c = val / 100;
+			 val = val % 100;
+
+			 d = val / 10;
+			 u = val % 10;
+
+			 // Mostrar por UART
+			 writeUART(c + '0');
+			 writeUART(d + '0');
+			 writeUART(u + '0');
+			 writeUART('\n');
+			 flag = 0;
+		}// Fin de modo potenciometro
+		else {
+			if(flag == 2){
+				writeTEXTUART("Introduce el caracter: ");
+				while(flag == 2);
+				writeUART((char) buffertx);
+				writeUART('\n');
+			}// Fin de modo ASCII
+			else{
+				writeTEXTUART("Elija un modo valido\n");
+				flag = 0;
+				
+				}// Modo error	
+		}//Modo final
+		
+	}// Modo menu
+} // While
 void initUART9600(void){
 	DDRB = 0xFF;			// Definimos Puerto B como salida
+	DDRC = 0;
+	DDRC |= (1 << DDC1) |(1 << DDC0); // Definimos Puerto C
 	PORTB = 0x00;			// Puerto B inicialmente apagado
 	// Configurar PD0 como entrada y PD1 como salida
 	DDRD &= ~(1 << DDD0);
@@ -66,7 +108,28 @@ void writeTEXTUART(char* Texto) {
 
 ISR(USART_RX_vect) {
 	buffertx = UDR0;
-	//lo que yo le mande me responde lo mismo
-	while(!(UCSR0A & (1<<UDRE0))); //UCSR0A sea 1
-	UDR0 = buffertx;
+	if(flag == 0){
+		if(buffertx == '1'){ //Leemos si es la opción 1, cambiamos flag en consecuencia
+			flag = 1;
+		}
+		else {
+			if(buffertx == '2'){ //Leemos si es la opción 2, cambiamos flag en consecuencia
+				flag = 2;
+			}
+			else {				// Entramos al modo error
+				flag = 3;
+			}
+		}//Fin intercambio modos
+	} // Fin menu
+	else {						//Mostrar en leds
+		PORTB = buffertx;
+		PORTC = (buffertx>>6);
+		flag = 0;
+	}
+}// Fin interrupción
+
+ISR(ADC_vect){
+	valueadc = ADCH; // Almacenar valor
+	ADCSRA |= (1<<ADIF); // Apagar bandera
+	ADCSRA |= (1<<ADSC); //Volver a iniciar
 }
