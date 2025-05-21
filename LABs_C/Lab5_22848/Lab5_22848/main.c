@@ -49,7 +49,7 @@ void setup(void){
 	initPWM1B(ninv,fastMode,t1_top,64);
 	initPWM0A(ninv,64);
 	DDRB	= 0;
-	DDRB	|= (1 << DDB1)|(1 << DDB2);			// Configuración de (PB0-PB1) como salida PWM
+	DDRB	|= (1 << DDB1)|(1 << DDB2);			// Configuración de (PB1-PB2) como salida PWM
 	DDRD |= (1 << DDD6);						// Configuración de PD6 como salida PWM
 	
 }
